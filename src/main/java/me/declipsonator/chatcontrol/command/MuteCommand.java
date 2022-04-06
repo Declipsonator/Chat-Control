@@ -16,7 +16,7 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class MuteCommand {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-
+        if(!Config.muteCommand) return;
 
         dispatcher.register(literal("mute").requires(source -> source.hasPermissionLevel(4))
                 .then(literal("add")
@@ -31,6 +31,7 @@ public class MuteCommand {
                                         Config.addMutedPlayer(profile.getId());
                                         context.getSource().sendFeedback(Text.of("Permanent mute added"), true);
                                     }
+                                    Config.saveConfig();
                                     return SINGLE_SUCCESS;
                                 })))
                         .then(literal("temporary")
@@ -44,6 +45,7 @@ public class MuteCommand {
                                                 Config.addTempMutedPlayer(profile.getId(), until);
                                                 context.getSource().sendFeedback(Text.of("Temporary mute added"), true);
                                             }
+                                            Config.saveConfig();
                                             return SINGLE_SUCCESS;
                                         }))))
 
@@ -57,6 +59,7 @@ public class MuteCommand {
                         Config.removeMutedPlayer(profile.getId());
                         context.getSource().sendFeedback(Text.of(profile.getName() + " has been unmuted"), true);
                     }
+                    Config.saveConfig();
                     return SINGLE_SUCCESS;
                 })))
                 .then(literal("list").executes(context -> {

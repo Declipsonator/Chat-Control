@@ -20,10 +20,13 @@ public class PlayerManagerMixin {
     private void onBroadcastChatMessage(Text message, MessageType type, UUID sender, CallbackInfo ci) {
         if(message.getString().startsWith("/") && Config.ignoreCommands) return;
         if(sender == null || Config.isIgnored(sender)) return;
+        StringBuilder sb = new StringBuilder(message.getString());
+        sb.delete(0, sb.indexOf("]") + 2);
+        String adjustedMessage = sb.toString();
         if(Config.isMuted(sender)
-        || Config.checkWords(message.getString())
-        || Config.checkPhrases(message.getString())
-        || Config.checkRegexes(message.getString())) {
+        || Config.checkWords(adjustedMessage)
+        || Config.checkPhrases(adjustedMessage)
+        || Config.checkRegexes(adjustedMessage)) {
             ci.cancel();
             if(Config.logFiltered) {
                 ChatControl.LOG.info("Filtered message from " + sender + ": " + message.getString());
@@ -36,10 +39,13 @@ public class PlayerManagerMixin {
     private void onBroadcastChatMessage(Text serverMessage, Function<ServerPlayerEntity, Text> playerMessageFactory, MessageType type, UUID sender, CallbackInfo ci) {
         if(serverMessage.getString().startsWith("/") && Config.ignoreCommands) return;
         if(sender == null || Config.isIgnored(sender)) return;
+        StringBuilder sb = new StringBuilder(serverMessage.getString());
+        sb.delete(0, sb.indexOf(">") + 2);
+        String adjustedMessage = sb.toString();
         if(Config.isMuted(sender)
-                || Config.checkWords(serverMessage.getString())
-                || Config.checkPhrases(serverMessage.getString())
-                || Config.checkRegexes(serverMessage.getString())) {
+                || Config.checkWords(adjustedMessage)
+                || Config.checkPhrases(adjustedMessage)
+                || Config.checkRegexes(adjustedMessage)) {
             ci.cancel();
             if(Config.logFiltered) {
                 ChatControl.LOG.info("Filtered message from " + sender + ": " + serverMessage.getString());

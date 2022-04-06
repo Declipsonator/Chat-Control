@@ -22,6 +22,7 @@ public class Config {
     public static boolean logFiltered = true;
     public static boolean ignoreCommands = true;
     public static boolean caseSensitive = false;
+    public static boolean muteCommand = true;
 
     public static ArrayList<String> getRegexes() {
         return (ArrayList<String>) regexes.clone();
@@ -179,12 +180,16 @@ public class Config {
     }
 
     public static boolean checkRegexes(String message) {
-        message = replaceChars(message);
         for (String regex : regexes) {
-            if (message.matches(regex)) {
+            if(caseSensitive) {
+                if (message.matches(regex)) {
+                    return true;
+                }
+            } else if (message.matches("(?i)" + regex)) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -198,7 +203,10 @@ public class Config {
 
     public static void loadConfig() {
         File file = ChatControl.configFilePath.toFile();
-        if(!file.exists()) return;
+        if(!file.exists()) {
+            saveConfig();
+            return;
+        }
         try {
             String json = new String(Files.readAllBytes(ChatControl.configFilePath)).replace("\n", "");
             JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
@@ -212,8 +220,9 @@ public class Config {
             logFiltered = jsonObject.get("logFiltered").getAsBoolean();
             ignoreCommands = jsonObject.get("ignoreCommands").getAsBoolean();
             caseSensitive = jsonObject.get("caseSensitive").getAsBoolean();
+            muteCommand = jsonObject.get("muteCommand").getAsBoolean();
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -231,6 +240,7 @@ public class Config {
             jsonObject.addProperty("logFiltered", logFiltered);
             jsonObject.addProperty("ignoreCommands", ignoreCommands);
             jsonObject.addProperty("caseSensitive", caseSensitive);
+            jsonObject.addProperty("muteCommand", muteCommand);
 
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             String json = gson.toJson(jsonObject);

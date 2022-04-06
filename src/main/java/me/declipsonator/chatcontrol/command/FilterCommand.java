@@ -30,6 +30,8 @@ public class FilterCommand {
                             }
                             Config.addWord(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Word added to filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("phrase").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
@@ -39,6 +41,8 @@ public class FilterCommand {
                             }
                             Config.addPhrase(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Phrase added to filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("regex").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
@@ -48,6 +52,8 @@ public class FilterCommand {
                             }
                             Config.addRegex(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Regex added to filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                 )
@@ -59,6 +65,8 @@ public class FilterCommand {
                             }
                             Config.removeWord(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Word removed from filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("phrase").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
@@ -68,6 +76,8 @@ public class FilterCommand {
                             }
                             Config.removePhrase(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Phrase removed from filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("regex").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
@@ -77,6 +87,8 @@ public class FilterCommand {
                             }
                             Config.removeRegex(StringArgumentType.getString(context, "to_block"));
                             context.getSource().sendFeedback(Text.of("Regex removed from filter"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                 )
@@ -108,6 +120,8 @@ public class FilterCommand {
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
                             Config.logFiltered = BoolArgumentType.getBool(context, "value");
                             context.getSource().sendFeedback(Text.of("Logging filtered messages: " + Config.logFiltered), true);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("ignoreCommands").executes(context -> {
@@ -116,14 +130,28 @@ public class FilterCommand {
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
                             Config.ignoreCommands = BoolArgumentType.getBool(context, "value");
                             context.getSource().sendFeedback(Text.of("Ignoring commands: " + Config.ignoreCommands), true);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
+                        .then(literal("reload").executes(context -> {
+                            context.getSource().sendFeedback(Text.of("Reloading chat control config."), true);
+                            Config.loadConfig();
+                            return SINGLE_SUCCESS;
+                        }))
+                        .then(literal("save").executes(context -> {
+                            context.getSource().sendFeedback(Text.of("Saving chat control config."), true);
+                            Config.saveConfig();
+                            return SINGLE_SUCCESS;
+                        }))
                         .then(literal("caseSensitive").executes(context -> {
                             context.getSource().sendFeedback(Text.of("Case Sensitive: " + Config.caseSensitive), false);
                             return SINGLE_SUCCESS;
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
                             Config.caseSensitive = BoolArgumentType.getBool(context, "value");
                             context.getSource().sendFeedback(Text.of("Case Sensitive: " + Config.caseSensitive), true);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("replacementLetters").executes(context -> {
@@ -139,6 +167,8 @@ public class FilterCommand {
 
                             Config.addReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class));
                             context.getSource().sendFeedback(Text.of("Replacement added to config"), false);
+                            Config.saveConfig();
+
                             return SINGLE_SUCCESS;
                         }))))
                         .then(literal("remove").then(argument("to_replace", CharArgumentType.character()).then(argument("replace_with",  CharArgumentType.character()).executes(context -> {
@@ -149,6 +179,8 @@ public class FilterCommand {
 
                             Config.removeReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class));
                             context.getSource().sendFeedback(Text.of("Replacement removed from config"), false);
+
+                            Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))))
@@ -161,6 +193,8 @@ public class FilterCommand {
                                         Config.addIgnoredPlayer(profile.getId());
                                         context.getSource().sendFeedback(Text.of(profile.getName() + " is now ignored"), false);
                                     }
+                                    Config.saveConfig();
+
                                     return SINGLE_SUCCESS;
                                 })))
                                 .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
@@ -168,6 +202,8 @@ public class FilterCommand {
                                         Config.removeIgnoredPlayer(profile.getId());
                                         context.getSource().sendFeedback(Text.of(profile.getName() + " is no longer ignored"), false);
                                     }
+                                    Config.saveConfig();
+
                                     return SINGLE_SUCCESS;
                                 })))
                         )
