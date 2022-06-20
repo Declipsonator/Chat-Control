@@ -4,7 +4,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import me.declipsonator.chatcontrol.util.CharArgumentType;
 import me.declipsonator.chatcontrol.util.Config;
 
 import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
@@ -158,32 +157,45 @@ public class FilterCommand {
                             context.getSource().sendFeedback(Text.of("Replacement Letters: " + Config.getReplacementChars()), false);
                             return SINGLE_SUCCESS;
                         })
-                        .then(literal("add").then(argument("to_replace", CharArgumentType.character()).then(argument("replace_with", CharArgumentType.character()).executes(context -> {
+                        .then(literal("add").then(argument("string", StringArgumentType.greedyString()).executes(context -> {
+                            String replacements = StringArgumentType.getString(context, "string");
+                            String[] split = replacements.split(" ");
+                            if(replacements.length() != 3 || split.length != 2) {
+                                context.getSource().sendError(Text.of("Invalid Syntax, expected \"<to_replace> <replace_with>\""));
+                                return 0;
+                            }
 
-                            if(Config.isReplacementChar(new ReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class)))) {
+                            if(Config.isReplacementChar(new ReplacementChar(split[0].charAt(0), split[1].charAt(0)))) {
                                 context.getSource().sendError(Text.of("Letter already in list"));
                                 return 0;
                             }
 
-                            Config.addReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class));
+                            Config.addReplacementChar(split[0].charAt(0), split[1].charAt(0));
                             context.getSource().sendFeedback(Text.of("Replacement added to config"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
-                        }))))
-                        .then(literal("remove").then(argument("to_replace", CharArgumentType.character()).then(argument("replace_with",  CharArgumentType.character()).executes(context -> {
-                            if(!Config.isReplacementChar(new ReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class)))) {
+                        })))
+                        .then(literal("remove").then(argument("string", StringArgumentType.greedyString()).executes(context -> {
+                            String replacements = StringArgumentType.getString(context, "string");
+                            String[] split = replacements.split(" ");
+                            if(replacements.length() != 3 || split.length != 2) {
+                                context.getSource().sendError(Text.of("Invalid Syntax, expected \"<to_replace> <replace_with>\""));
+                                return 0;
+                            }
+
+                            if(!Config.isReplacementChar(new ReplacementChar(split[0].charAt(0), split[1].charAt(0)))) {
                                 context.getSource().sendError(Text.of("Letter not in list"));
                                 return 0;
                             }
 
-                            Config.removeReplacementChar(context.getArgument("to_replace", Character.class), context.getArgument("replace_with", Character.class));
+                            Config.removeReplacementChar(split[0].charAt(0), split[1].charAt(0));
                             context.getSource().sendFeedback(Text.of("Replacement removed from config"), false);
 
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
-                        })))))
+                        }))))
                         .then(literal("ignoredPlayers").executes(context -> {
                                     context.getSource().sendFeedback(Text.of("Ignored Players: " + Config.getIgnoredPlayers()), false);
                                     return SINGLE_SUCCESS;
