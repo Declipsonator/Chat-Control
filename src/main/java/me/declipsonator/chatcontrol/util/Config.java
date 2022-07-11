@@ -157,7 +157,7 @@ public class Config {
         message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
         for (String word : words) {
             String adjustedWord = caseSensitive ? word : word.toLowerCase();
-            String regex = ".*\\b" + Pattern.quote(adjustedWord) + "\\b.*";
+            String regex = "\\W*((?i)" + Pattern.quote(adjustedWord) + "(?-i))\\W*";
 
             if (message.matches(regex)) {
                 return true;
