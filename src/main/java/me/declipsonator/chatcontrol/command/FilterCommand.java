@@ -10,10 +10,17 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
+import me.declipsonator.chatcontrol.util.PlayerUtils;
 import me.declipsonator.chatcontrol.util.ReplacementChar;
+import me.declipsonator.chatcontrol.util.TempMutedPlayer;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 
 public class FilterCommand {
@@ -28,7 +35,18 @@ public class FilterCommand {
                                 return 0;
                             }
                             Config.addWord(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Word added to filter"), false);
+                            context.getSource().sendFeedback(() -> Text.literal("Word added to filter"), false);
+                            Config.saveConfig();
+
+                            return SINGLE_SUCCESS;
+                        })))
+                        .then(literal("standAloneWord").then(argument("to_block", StringArgumentType.word()).executes(context -> {
+                            if(Config.isStandAloneWord(context.getArgument("to_block", String.class))) {
+                                context.getSource().sendError(Text.of("Standalone word already Blocked"));
+                                return 0;
+                            }
+                            Config.addStandAloneWord(StringArgumentType.getString(context, "to_block"));
+                            context.getSource().sendFeedback(() -> Text.literal("Standalone word added to filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
@@ -39,7 +57,7 @@ public class FilterCommand {
                                 return 0;
                             }
                             Config.addPhrase(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Phrase added to filter"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Phrase added to filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
@@ -50,42 +68,53 @@ public class FilterCommand {
                                 return 0;
                             }
                             Config.addRegex(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Regex added to filter"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Regex added to filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
                 )
                 .then(literal("remove").requires(source -> source.hasPermissionLevel(4))
-                        .then(literal("word").then(argument("to_block", StringArgumentType.word()).executes(context -> {
+                        .then(literal("word").then(argument("to_block", StringArgumentType.word()).suggests((context, builder) -> CommandSource.suggestMatching(Config.getWords(), builder)).executes(context -> {
                             if(!Config.isWord(StringArgumentType.getString(context, "to_block"))) {
                                 context.getSource().sendError(Text.of("Word not found"));
                                 return 0;
                             }
                             Config.removeWord(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Word removed from filter"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Word removed from filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
-                        .then(literal("phrase").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
+                        .then(literal("standAloneWord").then(argument("to_block", StringArgumentType.word()).suggests((context, builder) -> CommandSource.suggestMatching(Config.getStandAloneWords(), builder)).executes(context -> {
+                            if(!Config.isStandAloneWord(StringArgumentType.getString(context, "to_block"))) {
+                                context.getSource().sendError(Text.of("Standalone word not found"));
+                                return 0;
+                            }
+                            Config.removeStandAloneWord(StringArgumentType.getString(context, "to_block"));
+                            context.getSource().sendFeedback(() -> Text.of("Standalone word removed from filter"), false);
+                            Config.saveConfig();
+
+                            return SINGLE_SUCCESS;
+                        })))
+                        .then(literal("phrase").then(argument("to_block", StringArgumentType.greedyString()).suggests((context, builder) -> CommandSource.suggestMatching(Config.getPhrases(), builder)).executes(context -> {
                             if(!Config.isPhrase(StringArgumentType.getString(context, "to_block"))) {
                                 context.getSource().sendError(Text.of("Phrase not found"));
                                 return 0;
                             }
                             Config.removePhrase(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Phrase removed from filter"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Phrase removed from filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
-                        .then(literal("regex").then(argument("to_block", StringArgumentType.greedyString()).executes(context -> {
+                        .then(literal("regex").then(argument("to_block", StringArgumentType.greedyString()).suggests((context, builder) -> CommandSource.suggestMatching(Config.getRegexes(), builder)).executes(context -> {
                             if(!Config.isRegex(StringArgumentType.getString(context, "to_block"))) {
                                 context.getSource().sendError(Text.of("Regex not found"));
                                 return 0;
                             }
                             Config.removeRegex(StringArgumentType.getString(context, "to_block"));
-                            context.getSource().sendFeedback(Text.of("Regex removed from filter"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Regex removed from filter"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
@@ -93,68 +122,93 @@ public class FilterCommand {
                 )
                 .then(literal("list").requires(source -> source.hasPermissionLevel(4))
                         .then(literal("words").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Filtered Words: " + Config.getWords().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Words: " + Config.getWords().toString()), false);
+                            return SINGLE_SUCCESS;
+                        }))
+                        .then(literal("standAloneWords").executes(context -> {
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Standalone Words: " + Config.getStandAloneWords().toString()), false);
                             return SINGLE_SUCCESS;
                         }))
                         .then(literal("phrases").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Filtered Phrases: " + Config.getPhrases().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Phrases: " + Config.getPhrases().toString()), false);
                             return SINGLE_SUCCESS;
                         }))
                         .then(literal("regexes").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Filtered Regexes: " + Config.getRegexes().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Regexes: " + Config.getRegexes().toString()), false);
                             return SINGLE_SUCCESS;
                         }))
                         .then(literal("all").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Filtered Words: " + Config.getWords().toString()), false);
-                            context.getSource().sendFeedback(Text.of("Filtered Phrases: " + Config.getPhrases().toString()), false);
-                            context.getSource().sendFeedback(Text.of("Filtered Regexes: " + Config.getRegexes().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Words: " + Config.getWords().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Standalone Words: " + Config.getStandAloneWords().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Phrases: " + Config.getPhrases().toString()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Filtered Regexes: " + Config.getRegexes().toString()), false);
 
                             return SINGLE_SUCCESS;
                         }))
                 )
                 .then(literal("config").requires(source -> source.hasPermissionLevel(4))
                         .then(literal("logFiltered").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Logging filtered messages: " + Config.logFiltered), false);
+                            context.getSource().sendFeedback(() -> Text.of("Logging filtered messages: " + Config.logFiltered), false);
                             return SINGLE_SUCCESS;
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
                             Config.logFiltered = BoolArgumentType.getBool(context, "value");
-                            context.getSource().sendFeedback(Text.of("Logging filtered messages: " + Config.logFiltered), true);
+                            context.getSource().sendFeedback(() -> Text.of("Logging filtered messages: " + Config.logFiltered), true);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
-                        .then(literal("ignoreCommands").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Ignoring commands: " + Config.ignoreCommands), false);
+                        .then(literal("tellPlayer").executes(context -> {
+                            context.getSource().sendFeedback(() -> Text.of("Telling Player: " + Config.tellPlayer), false);
                             return SINGLE_SUCCESS;
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
-                            Config.ignoreCommands = BoolArgumentType.getBool(context, "value");
-                            context.getSource().sendFeedback(Text.of("Ignoring commands: " + Config.ignoreCommands), true);
+                            Config.tellPlayer = BoolArgumentType.getBool(context, "value");
+                            context.getSource().sendFeedback(() -> Text.of("Telling Player: " + Config.tellPlayer), true);
+                            Config.saveConfig();
+
+                            return SINGLE_SUCCESS;
+                        })))
+                        .then(literal("censorAndSend").executes(context -> {
+                            context.getSource().sendFeedback(() -> Text.of("Censoring: " + Config.censorAndSend), false);
+                            return SINGLE_SUCCESS;
+                        }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
+                            Config.censorAndSend = BoolArgumentType.getBool(context, "value");
+                            context.getSource().sendFeedback(() -> Text.of("Censoring: " + Config.censorAndSend), true);
+                            Config.saveConfig();
+
+                            return SINGLE_SUCCESS;
+                        })))
+                        .then(literal("ignorePrivateMessages").executes(context -> {
+                            context.getSource().sendFeedback(() -> Text.of("Ignoring private messages: " + Config.ignorePrivateMessages), false);
+                            return SINGLE_SUCCESS;
+                        }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
+                            Config.ignorePrivateMessages = BoolArgumentType.getBool(context, "value");
+                            context.getSource().sendFeedback(() -> Text.of("Ignoring private messages: " + Config.ignorePrivateMessages), true);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("reload").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Reloading chat control config."), true);
+                            context.getSource().sendFeedback(() -> Text.of("Reloading chat control config."), true);
                             Config.loadConfig();
                             return SINGLE_SUCCESS;
                         }))
                         .then(literal("save").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Saving chat control config."), true);
+                            context.getSource().sendFeedback(() -> Text.of("Saving chat control config."), true);
                             Config.saveConfig();
                             return SINGLE_SUCCESS;
                         }))
                         .then(literal("caseSensitive").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Case Sensitive: " + Config.caseSensitive), false);
+                            context.getSource().sendFeedback(() -> Text.of("Case Sensitive: " + Config.caseSensitive), false);
                             return SINGLE_SUCCESS;
                         }).then(argument("value", BoolArgumentType.bool()).executes(context -> {
                             Config.caseSensitive = BoolArgumentType.getBool(context, "value");
-                            context.getSource().sendFeedback(Text.of("Case Sensitive: " + Config.caseSensitive), true);
+                            context.getSource().sendFeedback(() -> Text.of("Case Sensitive: " + Config.caseSensitive), true);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
                         .then(literal("replacementLetters").executes(context -> {
-                            context.getSource().sendFeedback(Text.of("Replacement Letters: " + Config.getReplacementChars()), false);
+                            context.getSource().sendFeedback(() -> Text.of("Replacement Letters: " + Config.getReplacementChars()), false);
                             return SINGLE_SUCCESS;
                         })
                         .then(literal("add").then(argument("string", StringArgumentType.greedyString()).executes(context -> {
@@ -171,12 +225,18 @@ public class FilterCommand {
                             }
 
                             Config.addReplacementChar(split[0].charAt(0), split[1].charAt(0));
-                            context.getSource().sendFeedback(Text.of("Replacement added to config"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Replacement added to config"), false);
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         })))
-                        .then(literal("remove").then(argument("string", StringArgumentType.greedyString()).executes(context -> {
+                        .then(literal("remove").then(argument("string", StringArgumentType.greedyString()).suggests((context, builder) -> {
+                            List<String> suggestions = new ArrayList<>();
+                            for (ReplacementChar replacementChar : Config.getReplacementChars()) {
+                                suggestions.add(replacementChar.toReplace + " " + replacementChar.replaceWith);
+                            }
+                            return CommandSource.suggestMatching(suggestions, builder);
+                        }).executes(context -> {
                             String replacements = StringArgumentType.getString(context, "string");
                             String[] split = replacements.split(" ");
                             if(replacements.length() != 3 || split.length != 2) {
@@ -190,20 +250,20 @@ public class FilterCommand {
                             }
 
                             Config.removeReplacementChar(split[0].charAt(0), split[1].charAt(0));
-                            context.getSource().sendFeedback(Text.of("Replacement removed from config"), false);
+                            context.getSource().sendFeedback(() -> Text.of("Replacement removed from config"), false);
 
                             Config.saveConfig();
 
                             return SINGLE_SUCCESS;
                         }))))
                         .then(literal("ignoredPlayers").executes(context -> {
-                                    context.getSource().sendFeedback(Text.of("Ignored Players: " + Config.getIgnoredPlayers()), false);
+                                    context.getSource().sendFeedback(() -> Text.of("Ignored Players: " + Config.getIgnoredPlayers()), false);
                                     return SINGLE_SUCCESS;
                                 })
                                 .then(literal("add").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
                                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
                                         Config.addIgnoredPlayer(profile.getId());
-                                        context.getSource().sendFeedback(Text.of(profile.getName() + " is now ignored"), false);
+                                        context.getSource().sendFeedback(() -> Text.of(profile.getName() + " is now ignored"), false);
                                     }
                                     Config.saveConfig();
 
@@ -212,7 +272,7 @@ public class FilterCommand {
                                 .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
                                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
                                         Config.removeIgnoredPlayer(profile.getId());
-                                        context.getSource().sendFeedback(Text.of(profile.getName() + " is no longer ignored"), false);
+                                        context.getSource().sendFeedback(() -> Text.of(profile.getName() + " is no longer ignored"), false);
                                     }
                                     Config.saveConfig();
 

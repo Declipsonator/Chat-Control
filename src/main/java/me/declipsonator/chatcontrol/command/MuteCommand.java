@@ -5,9 +5,16 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import me.declipsonator.chatcontrol.util.Config;
+import me.declipsonator.chatcontrol.util.PlayerUtils;
+import me.declipsonator.chatcontrol.util.TempMutedPlayer;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 import static net.minecraft.server.command.CommandManager.argument;
@@ -29,7 +36,7 @@ public class MuteCommand {
                                         }
 
                                         Config.addMutedPlayer(profile.getId());
-                                        context.getSource().sendFeedback(Text.of("Permanent mute added"), true);
+                                        context.getSource().sendFeedback(() -> Text.of(profile.getName() + " has been permanently muted"), true);
                                     }
                                     Config.saveConfig();
                                     return SINGLE_SUCCESS;
@@ -43,28 +50,36 @@ public class MuteCommand {
                                                 }
                                                 long until = System.currentTimeMillis() + (IntegerArgumentType.getInteger(context, "minutes") * 60000L);
                                                 Config.addTempMutedPlayer(profile.getId(), until);
-                                                context.getSource().sendFeedback(Text.of("Temporary mute added"), true);
+                                                context.getSource().sendFeedback(() -> Text.of(profile.getName() + " has been temporarily muted"), true);
                                             }
                                             Config.saveConfig();
                                             return SINGLE_SUCCESS;
                                         }))))
 
                 )
-                .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
+                .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).suggests((context, builder) -> {
+                    List<TempMutedPlayer> tempMutedPlayers = Config.getTempMutedPlayers();
+                    List<UUID> mutedPlayers = Config.getMutedPlayers();
+                    tempMutedPlayers.forEach(player -> mutedPlayers.add(player.uuid()));
+                    return CommandSource.suggestMatching(PlayerUtils.getPlayerNames(mutedPlayers), builder);
+                }).executes(context -> {
                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
                         if (!Config.isMuted(profile.getId())) {
                             context.getSource().sendError(Text.of(profile.getName() + " is not muted!"));
+                            return SINGLE_SUCCESS;
                         }
 
                         Config.removeMutedPlayer(profile.getId());
-                        context.getSource().sendFeedback(Text.of(profile.getName() + " has been unmuted"), true);
+                        context.getSource().sendFeedback(() -> Text.of(profile.getName() + " has been unmuted"), true);
                     }
                     Config.saveConfig();
                     return SINGLE_SUCCESS;
                 })))
                 .then(literal("list").executes(context -> {
-                    context.getSource().sendFeedback(Text.of("Muted Players: " + Config.getMutedPlayers().toString()), false);
-                    context.getSource().sendFeedback(Text.of("Temporary Muted Players: " + Config.getTempMutedPlayers().toString()), false);
+                    context.getSource().sendFeedback(() -> Text.of("Muted Players: " + PlayerUtils.getPlayerNames(Config.getMutedPlayers())), false);
+                    List<UUID> tempPlayers = new ArrayList<>();
+                    Config.getTempMutedPlayers().forEach(player -> tempPlayers.add(player.uuid()));
+                    context.getSource().sendFeedback(() -> Text.of("Temporary Muted Players: " + PlayerUtils.getPlayerNames(tempPlayers)), false);
                     return SINGLE_SUCCESS;
                 }))
         );
