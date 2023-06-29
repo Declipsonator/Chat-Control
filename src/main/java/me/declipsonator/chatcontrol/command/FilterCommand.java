@@ -10,6 +10,7 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
+import me.declipsonator.chatcontrol.util.PlayerUtils;
 import me.declipsonator.chatcontrol.util.ReplacementChar;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.GameProfileArgumentType;
@@ -18,6 +19,7 @@ import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 
 public class FilterCommand {
@@ -266,7 +268,12 @@ public class FilterCommand {
 
                                     return SINGLE_SUCCESS;
                                 })))
-                                .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
+                                .then(literal("remove").then(argument("player", GameProfileArgumentType.gameProfile()).suggests((context, builder) -> {
+                                    List<UUID> suggestions = Config.getIgnoredPlayers();
+                                    List<String> stringSuggestions = PlayerUtils.getPlayerNames(suggestions);
+
+                                    return CommandSource.suggestMatching(stringSuggestions, builder);
+                                }).executes(context -> {
                                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
                                         Config.removeIgnoredPlayer(profile.getId());
                                         context.getSource().sendFeedback(() -> Text.of(profile.getName() + " is no longer ignored"), false);

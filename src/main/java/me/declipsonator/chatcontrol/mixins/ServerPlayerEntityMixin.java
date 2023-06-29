@@ -50,8 +50,8 @@ public class ServerPlayerEntityMixin {
             newMessage = Config.censorRegexes(newMessage);
             newMessage = Config.censorStandAloneWords(newMessage);
             if(!newMessage.equals(message.getContent().getString())) {
-                sender.sendMessage(Text.of("Your message was censored by Chat Control"));
-                ChatControl.LOG.info("Censored message from " + sender.getDisplayName().getString() + " (" + sender.getUuid().toString() + ")" + ": " + message.getContent().getString());
+                if(Config.tellPlayer) sender.sendMessage(Text.of("Your message was censored by Chat Control"));
+                if(Config.logFiltered) ChatControl.LOG.info("Censored message from " + sender.getDisplayName().getString() + " (" + sender.getUuid().toString() + ")" + ": " + message.getContent().getString());
 
                 if(message instanceof SentMessage.Profileless) {
                     return new SentMessage.Profileless(Text.of(newMessage));
