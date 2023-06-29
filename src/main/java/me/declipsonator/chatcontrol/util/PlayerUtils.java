@@ -3,7 +3,6 @@ package me.declipsonator.chatcontrol.util;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.declipsonator.chatcontrol.ChatControl;
-import org.apache.commons.io.IOUtils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -20,7 +19,6 @@ public class PlayerUtils {
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            int responseCode = connection.getResponseCode();
             BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
             String line;
             StringBuilder response = new StringBuilder();

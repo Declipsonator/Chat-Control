@@ -10,9 +10,7 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
-import me.declipsonator.chatcontrol.util.PlayerUtils;
 import me.declipsonator.chatcontrol.util.ReplacementChar;
-import me.declipsonator.chatcontrol.util.TempMutedPlayer;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -20,7 +18,6 @@ import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 
 public class FilterCommand {

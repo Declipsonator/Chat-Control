@@ -2,7 +2,6 @@ package me.declipsonator.chatcontrol.mixins;
 
 import me.declipsonator.chatcontrol.ChatControl;
 import me.declipsonator.chatcontrol.util.Config;
-import net.minecraft.network.message.MessageBody;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
@@ -43,8 +42,8 @@ public class ServerPlayerEntityMixin {
 
     @ModifyVariable(method = "sendChatMessage", at = @At("HEAD"), ordinal = 0, argsOnly = true)
     private SentMessage onBroadcastChatMessage(SentMessage message, SentMessage m, boolean filterMaskEnabled, MessageType.Parameters params) {
-        if(Config.ignorePrivateMessages) return message;
         ServerPlayerEntity sender = (ServerPlayerEntity) (Object) this;
+        if(Config.ignorePrivateMessages || Config.isIgnored(sender.getUuid())) return message;
         if(!Config.isMuted(sender.getUuid()) && Config.censorAndSend) {
             String newMessage = Config.censorWords(message.getContent().getString());
             newMessage = Config.censorPhrases(newMessage);

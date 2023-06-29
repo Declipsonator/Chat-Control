@@ -2,7 +2,6 @@ package me.declipsonator.chatcontrol.mixins;
 
 import me.declipsonator.chatcontrol.ChatControl;
 import me.declipsonator.chatcontrol.util.Config;
-import net.minecraft.network.message.MessageBody;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.server.PlayerManager;
@@ -45,7 +44,7 @@ public class PlayerManagerMixin {
 
     @ModifyVariable(method = "broadcast(Lnet/minecraft/network/message/SignedMessage;Ljava/util/function/Predicate;Lnet/minecraft/server/network/ServerPlayerEntity;Lnet/minecraft/network/message/MessageType$Parameters;)V", at = @At("HEAD"), ordinal = 0, argsOnly = true)
     private SignedMessage onBroadcastChatMessage(SignedMessage message, SignedMessage f, Predicate<ServerPlayerEntity> shouldSendFiltered, ServerPlayerEntity sender, MessageType.Parameters params) {
-        if(!Config.isMuted(sender.getUuid()) && Config.censorAndSend) {
+        if(!Config.isMuted(sender.getUuid()) && Config.censorAndSend && !Config.isIgnored(sender.getUuid())) {
             String newMessage = Config.censorWords(message.getContent().getString());
             newMessage = Config.censorPhrases(newMessage);
             newMessage = Config.censorRegexes(newMessage);
