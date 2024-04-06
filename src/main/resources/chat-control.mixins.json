@@ -3,8 +3,8 @@
   "minVersion": "0.8",
   "package": "me.declipsonator.chatcontrol.mixins",
   "mixins": [
-    "PlayerManagerMixin",
-    "ServerPlayerEntityMixin"
+    "CommandManagerMixin",
+    "ServerPlayNetworkHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
