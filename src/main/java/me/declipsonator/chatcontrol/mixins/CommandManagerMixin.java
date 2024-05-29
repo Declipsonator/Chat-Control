@@ -66,8 +66,6 @@ public class CommandManagerMixin {
     private ParseResults<ServerCommandSource> onExecution(ParseResults<ServerCommandSource> parseResults,  ParseResults<ServerCommandSource> p, String command) {
         ServerCommandSource source = parseResults.getContext().getSource();
         command = command.replaceFirst(Pattern.quote("/"), "");
-        System.out.println("I RAN");
-        System.out.println(command);
         if(command.startsWith("say") || command.startsWith("me") || (!Config.ignorePrivateMessages && (command.startsWith("whisper") || command.startsWith("tell") || command.startsWith("msg") || command.startsWith("w")))) {
             String string = command.replaceFirst("say ", "");
             string = string.replaceFirst("me ", "");

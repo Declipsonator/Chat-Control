@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import me.declipsonator.chatcontrol.ChatControl;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -17,16 +18,7 @@ public class PlayerUtils {
         try {
             String urlString = "https://sessionserver.mojang.com/session/minecraft/profile/" + uuid;
             URL url = new URL(urlString);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            String line;
-            StringBuilder response = new StringBuilder();
-            while ((line = reader.readLine()) != null) {
-                response.append(line);
-            }
-            reader.close();
-            JsonObject object = new JsonParser().parse(response.toString()).getAsJsonObject();
+            JsonObject object = getJsonObject(url);
             return object.get("name").getAsString();
 
         } catch (Exception e) {
@@ -34,6 +26,19 @@ public class PlayerUtils {
         }
 
         return uuid;
+    }
+
+    private static JsonObject getJsonObject(URL url) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        String line;
+        StringBuilder response = new StringBuilder();
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+        reader.close();
+        return JsonParser.parseString(response.toString()).getAsJsonObject();
     }
 
     public static List<String> getPlayerNames(List<UUID> uuids) {
