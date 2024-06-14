@@ -26,7 +26,7 @@ public class CommandManagerMixin {
     private CommandDispatcher<ServerCommandSource> dispatcher;
 
     @Inject(method="execute", at = @At(value = "HEAD"), cancellable = true)
-    private void onExecute(ParseResults<ServerCommandSource> parseResults, String command, CallbackInfo ci) {
+    private void onExecute(ParseResults<ServerCommandSource> parseResults, String command, CallbackInfo cir) {
         ServerCommandSource source = parseResults.getContext().getSource();
         command = command.replaceFirst(Pattern.quote("/"), "");
 
@@ -45,16 +45,30 @@ public class CommandManagerMixin {
                     || Config.checkPhrases(string)
                     || Config.checkRegexes(string)
                     || Config.checkStandAloneWords(string)))) {
-                ci.cancel();
+                cir.cancel();
                 if(Config.logFiltered) {
                     ChatControl.LOG.info("Filtered message from " + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
                 }
                 if(Config.tellPlayer && Config.isTempMuted(sender.getUuid())) {
-                    sender.sendMessage(Text.of("You are muted for " + (Config.timeLeftTempMuted(sender.getUuid()) / 60000) + " more minutes"));
+                    sender.sendMessage(Text.of("You are muted for " + (Config.timeLeftTempMuted(sender.getUuid()) / 60000) + " more minutes. Reason: " + Config.getMuteReason(sender.getUuid())));
                 } else if(Config.tellPlayer && Config.isMuted(sender.getUuid())) {
-                    sender.sendMessage(Text.of("You are muted"));
+                    sender.sendMessage(Text.of("You are muted. Reason: " + Config.getMuteReason(sender.getUuid())));
                 } else if(Config.tellPlayer) {
                     sender.sendMessage(Text.of("Your message was filtered by Chat Control. Please refrain from using that language."));
+
+                    if(Config.muteAfterOffense) {
+                        Config.addOffense(sender.getUuid());
+                        if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
+                            if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
+                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
+                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                            } else {
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
+                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                            }
+                            Config.removeOffenses(sender.getUuid());
+                        }
+                    }
                 }
             }
 
@@ -82,6 +96,19 @@ public class CommandManagerMixin {
                 newMessage = Config.censorStandAloneWords(newMessage);
                 newMessage = Config.censorWords(newMessage);
                 if (!newMessage.equals(string)) {
+                    if(Config.muteAfterOffense) {
+                        Config.addOffense(sender.getUuid());
+                        if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
+                            if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
+                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
+                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                            } else {
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
+                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                            }
+                            Config.removeOffenses(sender.getUuid());
+                        }
+                    }
                     return dispatcher.parse(command.split(" ")[0] + " " +  newMessage, source);
                 }
             }
@@ -112,9 +139,24 @@ public class CommandManagerMixin {
                 newMessage = Config.censorStandAloneWords(newMessage);
                 newMessage = Config.censorWords(newMessage);
                 if (!newMessage.equals(string)) {
+
                     if (Config.tellPlayer) sender.sendMessage(Text.of("Your message was censored by Chat Control"));
                     if (Config.logFiltered)
                         ChatControl.LOG.info("Censored message from " + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
+                    if(Config.muteAfterOffense) {
+                        Config.addOffense(sender.getUuid());
+                        if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
+                            if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
+                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
+
+                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                            } else {
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
+                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                            }
+                            Config.removeOffenses(sender.getUuid());
+                        }
+                    }
                     return command.split(" ")[0] + " " +  newMessage;
                 }
             }

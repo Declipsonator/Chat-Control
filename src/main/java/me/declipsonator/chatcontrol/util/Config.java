@@ -13,6 +13,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -25,7 +26,7 @@ public class Config {
 
     private static final ArrayList<String> standAloneWords = new ArrayList<>();
     private static final ArrayList<ReplacementChar> replacementChars = new ArrayList<>();
-    private static final ArrayList<UUID> mutedPlayers = new ArrayList<>();
+    private static final ArrayList<MutedPlayer> mutedPlayers = new ArrayList<>();
     private static final ArrayList<TempMutedPlayer> tempMutedPlayers = new ArrayList<>();
     private static final ArrayList<UUID> ignoredPlayers = new ArrayList<>();
     public static boolean logFiltered = true;
@@ -34,6 +35,18 @@ public class Config {
     public static boolean muteCommand = true;
     public static boolean tellPlayer = true;
     public static boolean censorAndSend = false;
+
+    public static boolean muteAfterOffense = false;
+
+    public static MuteType muteAfterOffenseType = MuteType.TEMPORARY;
+
+    public static int muteAfterOffenseMinutes = 5;
+
+    public static int muteAfterOffenseNumber = 3;
+
+    public static int offenseExpireMinutes = 30;
+
+    public static ArrayList<Offense> offenses = new ArrayList<>();
 
     public static ArrayList<String> getRegexes() {
         return (ArrayList<String>) regexes.clone();
@@ -51,8 +64,8 @@ public class Config {
         return (ArrayList<String>) standAloneWords.clone();
     }
 
-    public static ArrayList<UUID> getMutedPlayers() {
-        return (ArrayList<UUID>) mutedPlayers.clone();
+    public static ArrayList<MutedPlayer> getMutedPlayers() {
+        return (ArrayList<MutedPlayer>) mutedPlayers.clone();
     }
 
     public static ArrayList<TempMutedPlayer> getTempMutedPlayers() {
@@ -83,12 +96,12 @@ public class Config {
         standAloneWords.add(standAloneWord);
     }
 
-    public static void addMutedPlayer(UUID player) {
-        mutedPlayers.add(player);
+    public static void addMutedPlayer(UUID player, String reason) {
+        mutedPlayers.add(new MutedPlayer(player, reason));
     }
 
-    public static void addTempMutedPlayer(UUID player, long time) {
-        tempMutedPlayers.add(new TempMutedPlayer(player, time));
+    public static void addTempMutedPlayer(UUID player, long time, String reason) {
+        tempMutedPlayers.add(new TempMutedPlayer(player, time, reason));
     }
 
     public static void addReplacementChar(char replacementChar, char replacement) {
@@ -97,6 +110,29 @@ public class Config {
 
     public static void addIgnoredPlayer(UUID player) {
         ignoredPlayers.add(player);
+    }
+
+    public static void addOffense(UUID player) {
+        offenses.add(new Offense(player, Instant.now().getEpochSecond()));
+    }
+
+    public static void removeOffenses(UUID player) {
+        offenses.removeIf(offense -> offense.uuid().equals(player));
+    }
+
+    public static void removeOldOffenses() {
+        offenses.removeIf(offense -> Instant.now().getEpochSecond() - offense.time() > offenseExpireMinutes * 60L);
+    }
+
+    public static int offenseCount(UUID player) {
+        removeOldOffenses();
+        int count = 0;
+        for(Offense offense : offenses) {
+            if(offense.uuid().equals(player)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public static void removeRegex(String regex) {
@@ -116,7 +152,13 @@ public class Config {
     }
 
     public static void removeMutedPlayer(UUID player) {
-        mutedPlayers.remove(player);
+        mutedPlayers.removeIf(mutedPlayer -> mutedPlayer.uuid().equals(player));
+        for (TempMutedPlayer tempMutedPlayer : tempMutedPlayers) {
+            if (tempMutedPlayer.uuid().equals(player)) {
+                removeTempMutedPlayer(tempMutedPlayer);
+                break;
+            }
+        }
     }
 
     public static void removeTempMutedPlayer(TempMutedPlayer player) {
@@ -148,7 +190,23 @@ public class Config {
     }
 
     public static boolean isMuted(UUID player) {
-        return mutedPlayers.contains(player) || isTempMuted(player);
+        return mutedPlayers.stream().anyMatch(mutedPlayer -> mutedPlayer.uuid().equals(player)) || isTempMuted(player);
+    }
+
+    public static String getMuteReason(UUID player) {
+        for(MutedPlayer mutedPlayer : mutedPlayers) {
+            if(mutedPlayer.uuid().equals(player)) {
+                return mutedPlayer.reason();
+            }
+        }
+
+        for(TempMutedPlayer tempMutedPlayer : tempMutedPlayers) {
+            if(tempMutedPlayer.uuid().equals(player)) {
+                return tempMutedPlayer.reason();
+            }
+        }
+
+        return "";
     }
 
     public static boolean isTempMuted(UUID player) {
@@ -193,144 +251,221 @@ public class Config {
         return ignoredPlayers.contains(player);
     }
 
-    public static boolean checkWords(String message) {
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
-        for (String word : words) {
-            String adjustedWord = caseSensitive ? word : word.toLowerCase();
-            if (message.contains(adjustedWord)) {
-                return true;
+    public static boolean checkWords(String string) {
+        for(String message : replacedCharPossibilities(string))
+        {
+            message = caseSensitive ? message : message.toLowerCase();
+            for (String word : words) {
+                String adjustedWord = caseSensitive ? word : word.toLowerCase();
+                if (message.contains(adjustedWord)) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
-    public static boolean checkStandAloneWords(String message) {
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
-        for (String standAloneWord : standAloneWords) {
-            String adjustedStandAloneWord = caseSensitive ? standAloneWord : standAloneWord.toLowerCase();
-            String regex = "\\b" + Pattern.quote(adjustedStandAloneWord) + "\\b";
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(message);
+    public static boolean checkStandAloneWords(String string) {
+        for(String message : replacedCharPossibilities(string))
+        {
+            message = caseSensitive ? message : message.toLowerCase();
+            for (String standAloneWord : standAloneWords) {
+                String adjustedStandAloneWord = caseSensitive ? standAloneWord : standAloneWord.toLowerCase();
+                String regex = "\\b" + Pattern.quote(adjustedStandAloneWord) + "\\b";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(message);
 
-            if (matcher.find()) {
-                return true;
+                if (matcher.find()) {
+                    return true;
+                }
             }
-        }
 
+        }
         return false;
     }
 
-    public static boolean checkPhrases(String message) {
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
-        for (String phrase : phrases) {
-            String adjustedPhrase = caseSensitive ? phrase : phrase.toLowerCase();
-            if (message.toLowerCase().contains(adjustedPhrase)) {
-                return true;
+    public static boolean checkPhrases(String string) {
+        for(String message : replacedCharPossibilities(string))
+        {
+            message = caseSensitive ? message : message.toLowerCase();
+            for (String phrase : phrases) {
+                String adjustedPhrase = caseSensitive ? phrase : phrase.toLowerCase();
+                if (message.contains(adjustedPhrase)) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
-    public static boolean checkRegexes(String message) {
-        for (String regex : regexes) {
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(message);
+    public static boolean checkRegexes(String string) {
+        for(String message : replacedCharPossibilities(string))
+        {
+            for(String regex : regexes)
+            {
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(message);
 
-            if (matcher.find()) {
-                return true;
+                if (matcher.find()) {
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
-    public static String censorWords(String message) {
-        StringBuilder modifiedMessage = new StringBuilder(message);
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
-
-        for (String word : words) {
-            String adjustedWord = caseSensitive ? word : word.toLowerCase();
-            if (message.contains(adjustedWord)) {
-                String replacement = "#".repeat(word.length());
-                modifiedMessage = new StringBuilder(modifiedMessage.toString().replace(word, replacement));
+    public static int countInString(String message, char c) {
+        int count = 0;
+        for (int i = 0; i < message.length(); i++) {
+            if (message.charAt(i) == c) {
+                count++;
             }
         }
-
-        return modifiedMessage.toString();
+        return count;
     }
 
-    public static String censorStandAloneWords(String message) {
-        StringBuilder modifiedMessage = new StringBuilder(message);
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
+    public static String censorWords(String string) {
+        String mostFilteredMessage = "";
+        for(String message : replacedCharPossibilities(string))
+        {
+            StringBuilder modifiedMessage = new StringBuilder(message);
+            message = caseSensitive ? message : message.toLowerCase();
 
-        for (String standAloneWord : standAloneWords) {
-            String adjustedStandAloneWord = caseSensitive ? standAloneWord : standAloneWord.toLowerCase();
-            String regex = "\\b" + Pattern.quote(adjustedStandAloneWord) + "\\b";
-
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(message);
-
-            while (matcher.find()) {
-                String replacement = "#".repeat(standAloneWord.length());
-                modifiedMessage.replace(matcher.start(), matcher.end(), replacement);
-                matcher = pattern.matcher(modifiedMessage);
+            for (String word : words) {
+                String adjustedWord = caseSensitive ? word : word.toLowerCase();
+                if (message.contains(adjustedWord)) {
+                    String replacement = "#".repeat(word.length());
+                    modifiedMessage = new StringBuilder(modifiedMessage.toString().replace(word, replacement));
+                }
+            }
+            if(countInString(modifiedMessage.toString(), '#') >= countInString(mostFilteredMessage, '#')) {
+                mostFilteredMessage = modifiedMessage.toString();
             }
         }
-
-        return modifiedMessage.toString();
+        for (int i = 0; i < mostFilteredMessage.length(); i++) {
+            if (mostFilteredMessage.charAt(i) == '#') {
+                string = string.substring(0, i) + "#" + string.substring(i + 1);
+            }
+        }
+        return string;
     }
 
-    public static String censorPhrases(String message) {
-        StringBuilder modifiedMessage = new StringBuilder(message);
-        message = caseSensitive ? replaceChars(message) : replaceChars(message).toLowerCase();
+    public static String censorStandAloneWords(String string) {
+        String mostFilteredMessage = "";
+        for(String message : replacedCharPossibilities(string))
+        {
+            StringBuilder modifiedMessage = new StringBuilder(message);
+            message = caseSensitive ? message : message.toLowerCase();
 
-        for (String phrase : phrases) {
-            String adjustedPhrase = caseSensitive ? phrase : phrase.toLowerCase();
-            int index = message.toLowerCase().indexOf(adjustedPhrase);
+            for (String standAloneWord : standAloneWords) {
+                String adjustedStandAloneWord = caseSensitive ? standAloneWord : standAloneWord.toLowerCase();
+                String regex = "\\b" + Pattern.quote(adjustedStandAloneWord) + "\\b";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(message);
 
-            while (index != -1) {
-                String replacement = "#".repeat(phrase.length());
-                modifiedMessage.replace(index, index + adjustedPhrase.length(), replacement);
-                message = modifiedMessage.toString().toLowerCase();
-                index = message.indexOf(adjustedPhrase, index + replacement.length());
+                while (matcher.find()) {
+                    String replacement = "#".repeat(standAloneWord.length());
+                    modifiedMessage.replace(matcher.start(), matcher.end(), replacement);
+                    message = modifiedMessage.toString().toLowerCase();
+                    matcher = pattern.matcher(message);
+                }
+            }
+            if(countInString(modifiedMessage.toString(), '#') >= countInString(mostFilteredMessage, '#')) {
+                mostFilteredMessage = modifiedMessage.toString();
             }
         }
-
-        return modifiedMessage.toString();
+        for (int i = 0; i < mostFilteredMessage.length(); i++) {
+            if (mostFilteredMessage.charAt(i) == '#') {
+                string = string.substring(0, i) + "#" + string.substring(i + 1);
+            }
+        }
+        return string;
     }
 
-    public static String censorRegexes(String message) {
-        StringBuilder modifiedMessage = new StringBuilder(message);
+    public static String censorPhrases(String string) {
+        String mostFilteredMessage = "";
+        for(String message : replacedCharPossibilities(string))
+        {
+            StringBuilder modifiedMessage = new StringBuilder(message);
+            message = caseSensitive ? message : message.toLowerCase();
 
-        for (String regex : regexes) {
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(message);
+            for (String phrase : phrases) {
+                String adjustedPhrase = caseSensitive ? phrase : phrase.toLowerCase();
+                int index = message.indexOf(adjustedPhrase);
 
-            while (matcher.find()) {
-                String replacement = "#".repeat(matcher.group().length());
-                modifiedMessage.replace(matcher.start(), matcher.end(), replacement);
-                matcher = pattern.matcher(modifiedMessage);
+                while (index != -1) {
+                    String replacement = "#".repeat(phrase.length());
+                    modifiedMessage.replace(index, index + adjustedPhrase.length(), replacement);
+                    message = modifiedMessage.toString().toLowerCase();
+                    index = message.indexOf(adjustedPhrase, index + replacement.length());
+                }
+            }
+            if(countInString(modifiedMessage.toString(), '#') >= countInString(mostFilteredMessage, '#')) {
+                mostFilteredMessage = modifiedMessage.toString();
             }
         }
+        for (int i = 0; i < mostFilteredMessage.length(); i++) {
+            if (mostFilteredMessage.charAt(i) == '#') {
+                string = string.substring(0, i) + "#" + string.substring(i + 1);
+            }
+        }
+        return string;
+    }
 
-        return modifiedMessage.toString();
+    public static String censorRegexes(String string) {
+        String mostFilteredMessage = "";
+        for(String message : replacedCharPossibilities(string))
+        {
+            StringBuilder modifiedMessage = new StringBuilder(message);
+
+            for (String regex : regexes) {
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(message);
+
+                while (matcher.find()) {
+                    String replacement = "#".repeat(matcher.group().length());
+                    modifiedMessage.replace(matcher.start(), matcher.end(), replacement);
+                    matcher = pattern.matcher(modifiedMessage);
+                }
+            }
+            if(countInString(modifiedMessage.toString(), '#') >= countInString(mostFilteredMessage, '#')) {
+                mostFilteredMessage = modifiedMessage.toString();
+            }
+        }
+        for (int i = 0; i < mostFilteredMessage.length(); i++) {
+            if (mostFilteredMessage.charAt(i) == '#') {
+                string = string.substring(0, i) + "#" + string.substring(i + 1);
+            }
+        }
+        return string;
     }
 
 
+    public static ArrayList<String> replacedCharPossibilities(String input) {
+        ArrayList<String> results = new ArrayList<>();
+        generateReplacementsHelper(input.toCharArray(), 0, results);
+        return results;
+    }
 
-    public static String replaceChars(String message) {
-        if(caseSensitive) {
-            for(ReplacementChar replacementChar : replacementChars) {
-                message = message.replace(replacementChar.toReplace, replacementChar.replaceWith);
+    // Helper function for recursion
+    private static void generateReplacementsHelper(char[] input, int index, ArrayList<String> results) {
+        if (index == input.length) {
+            results.add(new String(input));
+            return;
+        }
+
+        // Generate without replacement
+        generateReplacementsHelper(input, index + 1, results);
+
+        // Generate with replacement if applicable
+        for (ReplacementChar rc : replacementChars) {
+            if (input[index] == rc.toReplace) {
+                char originalChar = input[index];
+                input[index] = rc.replaceWith;
+                generateReplacementsHelper(input, index + 1, results);
+                input[index] = originalChar; // revert back for next iterations
             }
-            return message;
         }
-        for(ReplacementChar replacementChar : replacementChars) {
-            message = message.toLowerCase().replace(Character.toLowerCase(replacementChar.toReplace), replacementChar.replaceWith);
-        }
-        return message;
     }
 
 
@@ -341,9 +476,12 @@ public class Config {
             return;
         }
         try(FileReader fileReader = new FileReader(file)) {
-            Gson gson = new GsonBuilder().create();
+            Gson gson = new GsonBuilder()
+                    .registerTypeAdapter(MutedPlayer.class, new MutedPlayerTypeAdapter())
+                    .create();
             Type configType = new TypeToken<ConfigTemplate>() {}.getType();
             ConfigTemplate config = gson.fromJson(fileReader, configType);
+
 
             regexes.addAll(config.regexes);
             phrases.addAll(config.phrases);
@@ -359,6 +497,13 @@ public class Config {
             muteCommand = config.muteCommand;
             tellPlayer = config.tellPlayer;
             censorAndSend = config.censorAndSend;
+            muteAfterOffense = config.muteAfterOffense;
+            muteAfterOffenseType = config.muteAfterOffenseType;
+            muteAfterOffenseMinutes = config.muteAfterOffenseMinutes;
+            muteAfterOffenseNumber = config.muteAfterOffenseNumber;
+            offenseExpireMinutes = config.offenseExpireMinutes;
+            offenses.addAll(config.offenses);
+
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -373,7 +518,7 @@ public class Config {
             jsonObject.add("words", arrayListToJsonArray(words));
             jsonObject.add("standAloneWords", arrayListToJsonArray(standAloneWords));
             jsonObject.add("replacementChars", replacementsToJsonArray(replacementChars));
-            jsonObject.add("mutedPlayers", arrayListToJsonArray(mutedPlayers));
+            jsonObject.add("mutedPlayers", mutedPlayersToJsonArray(mutedPlayers));
             jsonObject.add("tempMutedPlayers", tempMutedPlayersToJsonArray(tempMutedPlayers));
             jsonObject.add("ignoredPlayers", arrayListToJsonArray(ignoredPlayers));
             jsonObject.addProperty("logFiltered", logFiltered);
@@ -382,6 +527,12 @@ public class Config {
             jsonObject.addProperty("muteCommand", muteCommand);
             jsonObject.addProperty("tellPlayer", tellPlayer);
             jsonObject.addProperty("censorAndSend", censorAndSend);
+            jsonObject.addProperty("muteAfterOffense", muteAfterOffense);
+            jsonObject.addProperty("muteAfterOffenseType", muteAfterOffenseType.toString());
+            jsonObject.addProperty("muteAfterOffenseMinutes", muteAfterOffenseMinutes);
+            jsonObject.addProperty("muteAfterOffenseNumber", muteAfterOffenseNumber);
+            jsonObject.addProperty("offenseExpireMinutes", offenseExpireMinutes);
+            jsonObject.add("offenses", offensesToJsonArray(offenses));
 
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             String json = gson.toJson(jsonObject);
@@ -416,8 +567,36 @@ public class Config {
             JsonObject jsonObject = new JsonObject();
             jsonObject.addProperty("uuid", tempMutedPlayer.uuid().toString());
             jsonObject.addProperty("until", tempMutedPlayer.until());
+            jsonObject.addProperty("reason", tempMutedPlayer.reason());
             jsonArray.add(jsonObject);
         }
         return jsonArray;
+    }
+
+    public static JsonArray mutedPlayersToJsonArray(ArrayList<MutedPlayer> list) {
+        JsonArray jsonArray = new JsonArray();
+        for(MutedPlayer tempMutedPlayer : list) {
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("uuid", tempMutedPlayer.uuid().toString());
+            jsonObject.addProperty("reason", tempMutedPlayer.reason());
+            jsonArray.add(jsonObject);
+        }
+        return jsonArray;
+    }
+
+    public static JsonArray offensesToJsonArray(ArrayList<Offense> list) {
+        JsonArray jsonArray = new JsonArray();
+        for(Offense offense : list) {
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("uuid", offense.uuid().toString());
+            jsonObject.addProperty("time", offense.time());
+            jsonArray.add(jsonObject);
+        }
+        return jsonArray;
+    }
+
+    public enum MuteType {
+        PERMANENT,
+        TEMPORARY
     }
 }

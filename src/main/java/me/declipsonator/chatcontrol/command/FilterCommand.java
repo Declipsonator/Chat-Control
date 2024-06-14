@@ -3,6 +3,7 @@ package me.declipsonator.chatcontrol.command;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import me.declipsonator.chatcontrol.util.Config;
 
@@ -10,8 +11,10 @@ import static com.mojang.brigadier.Command.SINGLE_SUCCESS;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
+import me.declipsonator.chatcontrol.util.Offense;
 import me.declipsonator.chatcontrol.util.PlayerUtils;
 import me.declipsonator.chatcontrol.util.ReplacementChar;
+import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -26,7 +29,7 @@ public class FilterCommand {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
 
-        dispatcher.register(literal("filter").requires(source -> source.hasPermissionLevel(4))
+        dispatcher.register(literal("filter").requires(source -> Permissions.check(source, "chatcontrol.filter", 1))
                 .then(literal("add")
                         .then(literal("word").then(argument("to_block", StringArgumentType.word()).executes(context -> {
                             if(Config.isWord(context.getArgument("to_block", String.class))) {
@@ -282,6 +285,72 @@ public class FilterCommand {
 
                                     return SINGLE_SUCCESS;
                                 })))
+                        )
+                        .then(literal("muteAfterOffense").executes(context -> {
+                                    if(!Config.muteAfterOffense) {
+                                        context.getSource().sendFeedback(() -> Text.of("Mute After Offense: " + Config.muteAfterOffense), false);
+                                    } else {
+                                        if(Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
+                                            context.getSource().sendFeedback(() -> Text.of("Mute After Offense: " + Config.muteAfterOffense + " for " + Config.muteAfterOffenseNumber + " offenses in " + Config.offenseExpireMinutes + " minutes, Permanent Mute"), false);
+                                        } else {
+                                            context.getSource().sendFeedback(() -> Text.of("Mute After Offense: " + Config.muteAfterOffense + " for " + Config.muteAfterOffenseNumber + " offenses in " + Config.offenseExpireMinutes + " minutes, Temp Mute for " + Config.muteAfterOffenseMinutes + " minutes"), false);
+                                        }
+
+                                    }
+                                    return SINGLE_SUCCESS;
+                                })
+                                .then(literal("set").then(argument("value", BoolArgumentType.bool()).executes(context -> {
+                                    Config.muteAfterOffense = BoolArgumentType.getBool(context, "value");
+                                    context.getSource().sendFeedback(() -> Text.of("Mute After Offense: " + Config.muteAfterOffense), true);
+                                    Config.saveConfig();
+
+                                    return SINGLE_SUCCESS;
+                                })))
+                                .then(literal("type").then(argument("type", StringArgumentType.word()).suggests((context, builder) -> {
+                                    List<String> suggestions = new ArrayList<>();
+                                    for(Config.MuteType type : Config.MuteType.values()) {
+                                        suggestions.add(type.name());
+                                    }
+                                    return CommandSource.suggestMatching(suggestions, builder);
+                                }).executes(context -> {
+                                    Config.muteAfterOffenseType = Config.MuteType.valueOf(StringArgumentType.getString(context, "type").toUpperCase());
+                                    context.getSource().sendFeedback(() -> Text.of("Mute After Offense Type: " + Config.muteAfterOffenseType), true);
+                                    Config.saveConfig();
+
+                                    return SINGLE_SUCCESS;
+                                })))
+                                .then(literal("number").then(argument("number", IntegerArgumentType.integer(0)).executes(context -> {
+                                    Config.muteAfterOffenseNumber = IntegerArgumentType.getInteger(context, "number");
+                                    context.getSource().sendFeedback(() -> Text.of("Mute After Offense Number: " + Config.muteAfterOffenseNumber), true);
+                                    Config.saveConfig();
+
+                                    return SINGLE_SUCCESS;
+                                })))
+                                .then(literal("length").then(argument("minutes", IntegerArgumentType.integer(0)).executes(context -> {
+                                    Config.muteAfterOffenseMinutes = IntegerArgumentType.getInteger(context, "minutes");
+                                    context.getSource().sendFeedback(() -> Text.of("Mute After Offense Minutes: " + Config.muteAfterOffenseMinutes), true);
+                                    Config.saveConfig();
+
+                                    return SINGLE_SUCCESS;
+                                })))
+                                .then(literal("expireMinutes").then(argument("minutes", IntegerArgumentType.integer(0)).executes(context -> {
+                                    Config.offenseExpireMinutes = IntegerArgumentType.getInteger(context, "minutes");
+                                    context.getSource().sendFeedback(() -> Text.of("Mute After Offense Expire Minutes: " + Config.offenseExpireMinutes), true);
+                                    Config.saveConfig();
+
+                                    return SINGLE_SUCCESS;
+                                })))
+                                .then(literal("currentOffenses").executes(context -> {
+                                    StringBuilder offenses = new StringBuilder("[");
+                                    for(Offense offense : Config.offenses) {
+                                        UUID uuid = offense.uuid();
+                                        offenses.append(PlayerUtils.getPlayerName(String.valueOf(uuid))).append(": ").append(Config.offenseCount(uuid)).append(" offenses,");
+                                    }
+                                    offenses = new StringBuilder(offenses.substring(0, offenses.length() - 1) + "]");
+                                    String finalOffenses = offenses.toString();
+                                    context.getSource().sendFeedback(() -> Text.of("Offenses: " + finalOffenses), false);
+                                    return SINGLE_SUCCESS;
+                                }))
                         )
 
                 )
