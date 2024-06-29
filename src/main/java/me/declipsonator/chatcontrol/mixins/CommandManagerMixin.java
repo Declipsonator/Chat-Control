@@ -47,24 +47,24 @@ public class CommandManagerMixin {
                     || Config.checkStandAloneWords(string)))) {
                 cir.cancel();
                 if(Config.logFiltered) {
-                    ChatControl.LOG.info("Filtered message from " + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
+                    ChatControl.LOG.info(Text.translatable("text.control.feedback.filteredMessageFrom").getString() + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
                 }
                 if(Config.tellPlayer && Config.isTempMuted(sender.getUuid())) {
-                    sender.sendMessage(Text.of("You are muted for " + (Config.timeLeftTempMuted(sender.getUuid()) / 60000) + " more minutes. Reason: " + Config.getMuteReason(sender.getUuid())));
+                    sender.sendMessage(Text.of(String.format(Text.translatable("text.control.feedback.moreMinutes").getString(), (Config.timeLeftTempMuted(sender.getUuid()) / 60000)) + Text.translatable("text.control.feedback.reason") + Config.getMuteReason(sender.getUuid())));
                 } else if(Config.tellPlayer && Config.isMuted(sender.getUuid())) {
-                    sender.sendMessage(Text.of("You are muted. Reason: " + Config.getMuteReason(sender.getUuid())));
+                    sender.sendMessage(Text.translatable("text.control.feedback.muted").append(Text.translatable("text.control.feedback.reason").getString() +  Config.getMuteReason(sender.getUuid())));
                 } else if(Config.tellPlayer) {
-                    sender.sendMessage(Text.of("Your message was filtered by Chat Control. Please refrain from using that language."));
+                    sender.sendMessage(Text.translatable("text.control.feedback.filteredMessage"));
 
                     if(Config.muteAfterOffense) {
                         Config.addOffense(sender.getUuid());
                         if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
                             if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
-                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
-                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                                Config.addMutedPlayer(sender.getUuid(), Text.translatable("text.control.feedback.repeatedOffenses").getString());
+                                sender.sendMessage(Text.translatable("text.control.feedback.permMuted"));
                             } else {
-                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
-                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), Text.translatable("text.control.feedback.repeatedOffenses").getString());
+                                sender.sendMessage(Text.of(String.format(Text.translatable("text.control.feedback.tempMuted").getString(),  Config.muteAfterOffenseMinutes)));
                             }
                             Config.removeOffenses(sender.getUuid());
                         }
@@ -100,11 +100,11 @@ public class CommandManagerMixin {
                         Config.addOffense(sender.getUuid());
                         if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
                             if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
-                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
-                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                                Config.addMutedPlayer(sender.getUuid(), Text.translatable("text.control.feedback.repeatedOffenses").getString());
+                                sender.sendMessage(Text.translatable("text.control.feedback.permMuted"));
                             } else {
-                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
-                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), Text.translatable("text.control.feedback.repeatedOffenses").getString());
+                                sender.sendMessage(Text.of(String.format(Text.translatable("text.control.feedback.tempMuted").getString(),  Config.muteAfterOffenseMinutes)));
                             }
                             Config.removeOffenses(sender.getUuid());
                         }
@@ -140,19 +140,19 @@ public class CommandManagerMixin {
                 newMessage = Config.censorWords(newMessage);
                 if (!newMessage.equals(string)) {
 
-                    if (Config.tellPlayer) sender.sendMessage(Text.of("Your message was censored by Chat Control"));
+                    if(Config.tellPlayer) sender.sendMessage(Text.translatable("text.control.feedback.censoredMessage"));
                     if (Config.logFiltered)
-                        ChatControl.LOG.info("Censored message from " + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
+                        ChatControl.LOG.info(Text.translatable("text.control.feedback.censoredMessageFrom").getString() + Objects.requireNonNull(sender.getDisplayName()).getString() + " (" + sender.getUuid().toString() + ")" + ": " + string);
                     if(Config.muteAfterOffense) {
                         Config.addOffense(sender.getUuid());
                         if (Config.offenseCount(sender.getUuid()) >= Config.muteAfterOffenseNumber) {
                             if (Config.muteAfterOffenseType == Config.MuteType.PERMANENT) {
-                                Config.addMutedPlayer(sender.getUuid(), "Repeated offenses");
+                                Config.addMutedPlayer(sender.getUuid(), Text.translatable("text.control.feedback.repeatedOffenses").getString());
 
-                                sender.sendMessage(Text.of("You have been permanently muted for repeated offenses"));
+                                sender.sendMessage(Text.translatable("text.control.feedback.permMuted"));
                             } else {
-                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), "Repeated offenses");
-                                sender.sendMessage(Text.of("You have been temporarily muted for " + Config.muteAfterOffenseMinutes + " minutes due to repeated offenses"));
+                                Config.addTempMutedPlayer(sender.getUuid(), System.currentTimeMillis() + (Config.muteAfterOffenseMinutes * 60000L), Text.translatable("text.control.feedback.repeatedOffenses").getString());
+                                sender.sendMessage(Text.of(String.format(Text.translatable("text.control.feedback.tempMuted").getString(),  Config.muteAfterOffenseMinutes)));
                             }
                             Config.removeOffenses(sender.getUuid());
                         }
