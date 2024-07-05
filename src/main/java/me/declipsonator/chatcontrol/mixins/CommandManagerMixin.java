@@ -120,10 +120,11 @@ public class CommandManagerMixin {
     @ModifyVariable(method = "execute", at = @At(value = "HEAD"), ordinal = 0, argsOnly = true)
     private String onExecute(String command, ParseResults<ServerCommandSource> parseResults, String c) {
         ServerCommandSource source = parseResults.getContext().getSource();
-        command = command.replaceFirst(Pattern.quote("/"), "");
+        String newCommand = command.replaceFirst(Pattern.quote("/"), "");
 
-        if(command.startsWith("say") || command.startsWith("me") || (!Config.ignorePrivateMessages && (command.startsWith("whisper") || command.startsWith("tell") || command.startsWith("msg") || command.startsWith("w")))) {
-            String string = command.replaceFirst("say ", "");
+        if(newCommand.startsWith("say") || newCommand.startsWith("me") || (!Config.ignorePrivateMessages && (newCommand.startsWith("whisper") || newCommand.startsWith("tell") || newCommand.startsWith("msg") || newCommand.startsWith("w")))) {
+
+            String string = newCommand.replaceFirst("say ", "");
             string = string.replaceFirst("me ", "");
             string = string.replaceFirst("w ", "");
             string = string.replaceFirst("tell ", "");
