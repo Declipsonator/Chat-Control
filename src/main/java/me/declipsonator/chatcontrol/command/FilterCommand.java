@@ -264,6 +264,7 @@ public class FilterCommand {
                                 })
                                 .then(literal("add").then(argument("player", GameProfileArgumentType.gameProfile()).executes(context -> {
                                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
+                                        if (Config.isIgnored(profile.getId())) continue;
                                         Config.addIgnoredPlayer(profile.getId());
                                         context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.filter.nowIgnored")), false);
                                     }
@@ -278,6 +279,7 @@ public class FilterCommand {
                                     return CommandSource.suggestMatching(stringSuggestions, builder);
                                 }).executes(context -> {
                                     for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
+                                        if (!Config.isIgnored(profile.getId())) continue;
                                         Config.removeIgnoredPlayer(profile.getId());
                                         context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.filter.notIgnored")), false);
                                     }

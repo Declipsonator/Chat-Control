@@ -7,7 +7,9 @@
   "authors": [
     "Declipsonator"
   ],
-  "contact": {},
+  "contact": {
+    "homepage": "https://github.com/Declipsonator/Chat-Control/"
+  },
   "license": "LGPL-3.0",
   "icon": "assets/chat-control/icon.png",
   "environment": "*",

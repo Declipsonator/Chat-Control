@@ -26,15 +26,17 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class MuteCommand {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        if(!Config.muteCommand) return;
+        if (!Config.muteCommand) return;
         dispatcher.register(literal("mute").requires(source -> Permissions.check(source, "chatcontrol.mute", 1))
                 .then(literal("add")
                         .then(literal("permanent")
                                 .then(argument("target", GameProfileArgumentType.gameProfile()).executes(context -> {
-                                            for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
+                                            int players = GameProfileArgumentType.getProfileArgument(context, "target").size();
+                                            for (GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
                                                 if (Config.isMuted(profile.getId())) {
                                                     context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
-                                                    return 0;
+                                                    if (players == 1) return 0;
+                                                    else continue;
                                                 }
 
                                                 Config.addMutedPlayer(profile.getId(), "No reason provided");
@@ -44,24 +46,29 @@ public class MuteCommand {
                                             return SINGLE_SUCCESS;
                                         })
                                         .then(argument("reason", StringArgumentType.greedyString()).executes(context -> {
-                                    for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
-                                        if (Config.isMuted(profile.getId())) {
-                                            context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
-                                            return 0;
-                                        }
+                                            int players = GameProfileArgumentType.getProfileArgument(context, "target").size();
+                                            for (GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
+                                                if (Config.isMuted(profile.getId())) {
+                                                    context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
+                                                    if (players == 1) return 0;
+                                                    else continue;
+                                                }
 
-                                        Config.addMutedPlayer(profile.getId(), context.getArgument("reason", String.class));
-                                        context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.permanentlyMuted")), true);
-                                    }
-                                    Config.saveConfig();
-                                    return SINGLE_SUCCESS;
-                                }))))
+                                                Config.addMutedPlayer(profile.getId(), context.getArgument("reason", String.class));
+                                                context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.permanentlyMuted")), true);
+                                            }
+                                            Config.saveConfig();
+                                            return SINGLE_SUCCESS;
+                                        }))))
                         .then(literal("temporary")
                                 .then(argument("target", GameProfileArgumentType.gameProfile())
                                         .then(argument("minutes", IntegerArgumentType.integer(0, 525960)).executes(context -> {
-                                                    for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
+                                                    int players = GameProfileArgumentType.getProfileArgument(context, "target").size();
+                                                    for (GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
                                                         if (Config.isMuted(profile.getId())) {
                                                             context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
+                                                            if (players == 1) return 0;
+                                                            else continue;
                                                         }
                                                         long until = System.currentTimeMillis() + (IntegerArgumentType.getInteger(context, "minutes") * 60000L);
                                                         Config.addTempMutedPlayer(profile.getId(), until, "No reason provided");
@@ -71,17 +78,20 @@ public class MuteCommand {
                                                     return SINGLE_SUCCESS;
                                                 })
                                                 .then(argument("reason", StringArgumentType.greedyString()).executes(context -> {
-                                                        for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
-                                                            if (Config.isMuted(profile.getId())) {
-                                                                context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
-                                                            }
-                                                            long until = System.currentTimeMillis() + (IntegerArgumentType.getInteger(context, "minutes") * 60000L);
-                                                            Config.addTempMutedPlayer(profile.getId(), until, context.getArgument("reason", String.class));
-                                                            context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.temporarilyMuted")), true);
+                                                    int players = GameProfileArgumentType.getProfileArgument(context, "target").size();
+                                                    for (GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "target")) {
+                                                        if (Config.isMuted(profile.getId())) {
+                                                            context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.alreadyMuted")));
+                                                            if (players == 1) return 0;
+                                                            else continue;
                                                         }
-                                                        Config.saveConfig();
-                                                        return SINGLE_SUCCESS;
-                                        })))
+                                                        long until = System.currentTimeMillis() + (IntegerArgumentType.getInteger(context, "minutes") * 60000L);
+                                                        Config.addTempMutedPlayer(profile.getId(), until, context.getArgument("reason", String.class));
+                                                        context.getSource().sendFeedback(() -> Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.temporarilyMuted")), true);
+                                                    }
+                                                    Config.saveConfig();
+                                                    return SINGLE_SUCCESS;
+                                                })))
                                 )
                         )
 
@@ -94,10 +104,13 @@ public class MuteCommand {
                     mutedPlayers.forEach(player -> playersOnMuteList.add(player.uuid()));
                     return CommandSource.suggestMatching(PlayerUtils.getPlayerNames(playersOnMuteList), builder);
                 }).executes(context -> {
-                    for(GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
+                    int players = GameProfileArgumentType.getProfileArgument(context, "player").size();
+                    for (GameProfile profile : GameProfileArgumentType.getProfileArgument(context, "player")) {
                         if (!Config.isMuted(profile.getId())) {
                             context.getSource().sendError(Text.of(profile.getName()).copy().append(Text.translatable("text.control.mute.notMuted")));
-                            return SINGLE_SUCCESS;
+                            if (players == 1) return 0;
+                            else continue;
+
                         }
 
                         Config.removeMutedPlayer(profile.getId());
